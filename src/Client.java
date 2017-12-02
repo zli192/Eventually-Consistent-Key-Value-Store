@@ -23,7 +23,7 @@ public class Client {
 			transport.open();
 			TProtocol protocol = new TBinaryProtocol(transport);
 			KeyValueStore.Client client = new KeyValueStore.Client(protocol);
-			client.configureReplicaInfo(null);
+			//client.configureReplicaInfo(null);
 			
 		} catch (TException e) {
 			System.err.println("Error: " + e.getMessage());

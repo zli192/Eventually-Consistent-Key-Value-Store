@@ -26,7 +26,7 @@ public class StoreHandler implements KeyValueStore.Iface{
 
 	@Override
 	public void configureReplicaInfo(List<ReplicaID> replica_list) throws TException {
-		System.out.println("configureReplicaInfo called");
+		replicaList =replica_list;
 	}
 
 }
