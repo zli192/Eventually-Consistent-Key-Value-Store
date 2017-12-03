@@ -5,25 +5,34 @@ import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 
 /**
- * Client to test the DHT Cord implementation.
+ * Client
  * 
  * @author ambarmodi
  */
 public class Client {
 
 	public static void main(String[] args) {
-		if (args.length != 2) {
-			System.out.println("Incorrect number of arguments! Client is terminating...");
+		String host=null;
+		int port = 0;
+		try{ 
+			if (args.length != 2){
+				throw new Exception();
+			}
+			host = args[0];
+			port = Integer.parseInt(args[1]);
+		}catch(Exception ex){
+			System.out.println("Incorrect number of arguments! USAGE: ./client.sh <server_ip> <port>");
 			System.exit(0);
 		}
-		String host = args[0];
-		int port = Integer.parseInt(args[1]);
+		
 		TTransport transport = new TSocket(host, port);
 		try {
 			transport.open();
 			TProtocol protocol = new TBinaryProtocol(transport);
 			KeyValueStore.Client client = new KeyValueStore.Client(protocol);
-			//client.configureReplicaInfo(null);
+			
+			//Request request = new Request();
+			//client.put(key, value, request);
 			
 		} catch (TException e) {
 			System.err.println("Error: " + e.getMessage());
