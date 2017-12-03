@@ -1,6 +1,8 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -52,17 +54,30 @@ public class StoreHandler implements KeyValueStore.Iface {
 
 	@Override
 	public void put(int key, String value, Request request) throws SystemException, TException {
-		// First write to a log File
-		System.out.println("Put has been called");
+		System.out.println("Trying to put "+key);
+		try {
+			writeToLog(key,value);
+		} catch (IOException e) {
+			throw new SystemException();
+		}
+		store.put(key, value);
+		
+	}
+
+	private void writeToLog(int key, String value) throws IOException {
+		//TODO: Instead of opening and closing BW each time check if can handle once
+		BufferedWriter bw = new BufferedWriter(new FileWriter(logFile,true));
+		String logLine= key+DELIMITER+value;
+		bw.write(logLine);
+		bw.newLine();
+		bw.close();
 	}
 
 	@Override
 	public String get(int key, Request request) throws SystemException, TException {
-		System.out.println("Get has been called");
-		for (ReplicaID r : replicaList) {
-			System.out.println(r.id);
-		}
-		return null;
+		System.out.println("Trying to get "+key);
+		
+		return store.get(key);
 	}
 
 	@Override

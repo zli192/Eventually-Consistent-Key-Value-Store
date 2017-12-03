@@ -32,7 +32,13 @@ public class Client {
 			KeyValueStore.Client client = new KeyValueStore.Client(protocol);
 			
 			//Request request = new Request();
-			//client.put(key, value, request);
+			//client.put(1, "Sample1", null);
+			//client.put(2, "Sample2", null);
+			//client.put(1, "Sample3", null);
+			
+			System.out.println(client.get(1, null));
+			System.out.println(client.get(2, null));
+			System.out.println(client.get(1, null));
 			
 		} catch (TException e) {
 			System.err.println("Error: " + e.getMessage());
