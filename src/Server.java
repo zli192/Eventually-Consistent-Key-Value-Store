@@ -22,10 +22,12 @@ public class Server {
 
 	public static void main(String[] args) {
 		String replicaFile = null;
+		String replicaName = null;
 		try {
-			port = Integer.parseInt(args[0]);
+			port = Integer.parseInt(args[1]);
+			replicaName = args[0];
 			ip = InetAddress.getLocalHost().getHostAddress();
-			replicaFile = args[1];
+			replicaFile = args[2];
 		} catch (UnknownHostException e) {
 			System.err.println("Error in getting IP: " + e.getMessage());
 			System.exit(0);
@@ -33,13 +35,13 @@ public class Server {
 			System.err.println("Please specify correct port: " + e.getMessage());
 			System.exit(0);
 		} catch (Exception e) {
-			System.err.println("Error: Incorrect Argument specifies. Usage: ./server.sh <port> <replicas.txt>");
+			System.err.println("Error: Incorrect Argument specifies. Usage: ./server.sh <id> <port> <replicas.txt>");
 			System.exit(0);
 		}
 
 		List<ReplicaID> replList = populateReplicationList(replicaFile);
 		try {
-			storeHandler = new StoreHandler(ip, port, replList);
+			storeHandler = new StoreHandler(replicaName, ip, port, replList);
 		} catch (Exception e) {
 			System.err.println("Error: Server cannot be initlialize." + e.getMessage());
 			System.exit(0);

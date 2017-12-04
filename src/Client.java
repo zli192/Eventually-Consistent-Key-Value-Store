@@ -35,10 +35,23 @@ public class Client {
 			//client.put(1, "Sample1", null);
 			//client.put(2, "Sample2", null);
 			//client.put(1, "Sample3", null);
+			Request request = new Request();
+			request.setLevel(ConsistencyLevel.ONE);
+			request.setIsCoordinator(true);
+			if(client.put(1, "string1", request, null)) {
+				System.out.println("put is successful");
+			} else {
+				System.out.println("put is not successful");
+			}
 			
-			System.out.println(client.get(1, null));
-			System.out.println(client.get(2, null));
-			System.out.println(client.get(1, null));
+			transport = new TSocket(host, 9090);
+			transport.open();
+			protocol = new TBinaryProtocol(transport);
+			client = new KeyValueStore.Client(protocol);
+			
+			System.out.println("retrieved value from server 9090" + client.get(1, request, null));
+			//System.out.println(client.get(2, request));
+			//System.out.println(client.get(1, request));
 			
 		} catch (TException e) {
 			System.err.println("Error: " + e.getMessage());

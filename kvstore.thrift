@@ -11,8 +11,9 @@ enum ConsistencyLevel {
 }
 
 struct Request {
-	1: string timestamp;
-	2: ConsistencyLevel level;
+	1: optional string timestamp;
+	2: required ConsistencyLevel level;
+	3: required bool isCoordinator;
 }
 
 struct ReplicaID{
@@ -22,12 +23,11 @@ struct ReplicaID{
 }
 
 service KeyValueStore {
-  void put(1: Key key,2: Value value, 3: Request request)
+  bool put(1: Key key,2: Value value, 3: Request request, 4: ReplicaID replicaID)
     throws (1: SystemException systemException),
   
-  Value get(1: Key key, 2: Request request)
+  Value get(1: Key key, 2: Request request, 3: ReplicaID replicaID)
     throws (1: SystemException systemException),
 
-  void configureReplicaInfo(1: list<ReplicaID> replica_list),
 
 }
