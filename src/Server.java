@@ -19,6 +19,7 @@ public class Server {
 	private static KeyValueStore.Processor<KeyValueStore.Iface> storeProcessor;
 	private static int port;
 	private static String ip;
+	private static boolean preConfiguration = false;
 
 	public static void main(String[] args) {
 		String replicaFile = null;
@@ -28,6 +29,9 @@ public class Server {
 			port = Integer.parseInt(args[1]);
 			ip = InetAddress.getLocalHost().getHostAddress();
 			replicaFile = args[2];
+			if(args[3].equalsIgnoreCase("true")) {
+				preConfiguration = true;
+			}
 		} catch (UnknownHostException e) {
 			System.err.println("Error in getting IP: " + e.getMessage());
 			System.exit(0);
@@ -35,13 +39,14 @@ public class Server {
 			System.err.println("Please specify correct port: " + e.getMessage());
 			System.exit(0);
 		} catch (Exception e) {
-			System.err.println("Error: Incorrect Argument specified. Usage: ./server.sh <id> <port> <replicas.txt>");
+			System.err.println("Error: Incorrect Argument specified. Usage: ./server.sh <id> <port> <replicas.txt> "
+					+ "true for hintedhandoff/false for readrepair");
 			System.exit(0);
 		}
 
 		List<ReplicaID> replList = populateReplicationList(replicaFile);
 		try {
-			storeHandler = new StoreHandler(replicaName, ip, port, replList);
+			storeHandler = new StoreHandler(replicaName, ip, port, replList, preConfiguration);
 		} catch (Exception e) {
 			System.err.println("Error: Server cannot be initlialize." + e.getMessage());
 			System.exit(0);

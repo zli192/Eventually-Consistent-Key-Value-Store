@@ -56,7 +56,8 @@ public class Client {
 				TProtocol protocol = new TBinaryProtocol(transport);
 				KeyValueStore.Client client = new KeyValueStore.Client(protocol);
 			
-				System.out.println("Enter the operation in the format get/put,key,value,ONE/TWO");
+				System.out.println("Enter the operation in the format get/put,key,value,ONE/TWO\n for get enter"
+						+ " value as -");
 				BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 				String operation = br.readLine();
 				String[] command = operation.split(",");
@@ -78,10 +79,9 @@ public class Client {
 				transport.close();
 			
 			} catch (TException e) {
-				System.err.println("Error: " + e.getMessage());
-				System.exit(0);
+				System.err.println("Error: Value could not be retrieved");
 			} catch (IOException e) {
-				e.printStackTrace();
+				System.err.println("Error: Value could not be retrieved");
 			}
 		}
 		
