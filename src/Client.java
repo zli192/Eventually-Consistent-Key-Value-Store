@@ -70,7 +70,8 @@ public class Client {
 					if(returnedValue.equals("NULL")) {
 						System.out.println("The key either does not exist or has null value");
 					} else {
-						System.out.println("The value returned for key " + key + " is " + returnedValue);
+						String[] value1 = returnedValue.split(",", 2);
+						System.out.println("The value returned for key " + key + " is " + value1[1]);
 					}
 				} else {
 					if(!client.put(key, value, request, null)) {
