@@ -43,7 +43,7 @@ public class StoreHandler implements KeyValueStore.Iface {
 	}
 
 	private void populateStore() throws NumberFormatException, IOException {
-		File log = new File(logFile);
+		File log = new File(id + logFile);
 		if (log.exists() && !log.isDirectory()) {
 			FileReader reader = new FileReader(log);
 			BufferedReader br = new BufferedReader(reader);
@@ -51,6 +51,7 @@ public class StoreHandler implements KeyValueStore.Iface {
 			String line;
 			while ((line = br.readLine()) != null) {
 				String[] entry = line.split(DELIMITER, 3);
+				System.out.println("retrieved from log " + entry[0] + "," + entry[2] + "," + entry[1]);
 				store.put(Integer.parseInt(entry[0]), new Value(entry[2], Timestamp.valueOf(entry[1])));
 			}
 			br.close();
@@ -67,8 +68,8 @@ public class StoreHandler implements KeyValueStore.Iface {
 	public boolean put(int key, String value, Request request, ReplicaID replicaID) throws SystemException, TException {
 //		System.out.println("Trying to put " + key);
 		Timestamp timestamp;
+		Value oldValue = store.get(key);
 		try {
-			Value oldValue = store.get(key);
 			if(request.isSetTimestamp()) {
 				timestamp = Timestamp.valueOf(request.getTimestamp());
 			} else {
@@ -87,11 +88,42 @@ public class StoreHandler implements KeyValueStore.Iface {
 		} catch (IOException e) {
 			throw new SystemException();
 		}
+		if(hints.containsKey(replicaID.getId())) {
+			performHintedHandoff(replicaID);
+		}
 		
-		Value valueWithTimestamp = new Value(value, timestamp);
-		store.put(key, valueWithTimestamp);
-		System.out.println("Value written at server " + port);
+		if(oldValue == null || oldValue.getTimestamp().before(timestamp)) {
+			System.out.println("The put request is the most recent");
+			Value valueWithTimestamp = new Value(value, timestamp);
+			store.put(key, valueWithTimestamp);
+			System.out.println(replicaID.getId() + " wrote value " + value + " at replica " + id + " for key " + key);
+		}
 		return true;
+	}
+
+	private void performHintedHandoff(ReplicaID replicaID) {
+		System.out.println("Hinted handoff being performed on replica " + replicaID.getId() + " by replica " + id);
+		List<Hint> listOfHints = hints.get(replicaID.getId());
+		for(Hint hint : listOfHints) {
+			TTransport tTransport = new TSocket(replicaID.getIp(), replicaID.getPort());
+			try {
+				tTransport.open();
+				TProtocol tProtocol = new TBinaryProtocol(tTransport);
+				KeyValueStore.Client client = new KeyValueStore.Client(tProtocol);
+				client.put(hint.getKey(), hint.getValue(), hint.getRequest(), 
+						new ReplicaID().setIp(ip).setPort(port).setId(id));
+				tTransport.close();
+			} catch (TTransportException e) {
+				e.printStackTrace();
+			} catch (SystemException e) {
+				e.printStackTrace();
+			} catch (TException e) {
+				e.printStackTrace();
+			}
+		}
+		hints.remove(replicaID.getId()); 
+		
+		
 	}
 
 	private boolean sendRequestToAllReplicas(int key, String value, Request request) {
@@ -131,18 +163,19 @@ public class StoreHandler implements KeyValueStore.Iface {
 	private void storeHintsLocally(ReplicaID replicaID, int key, String value, Request request) {
 		System.out.println("store hints locally called");
 		Hint hint = new Hint(replicaID, key, value, request);
+		List<Hint> list;
 		if(hints.containsKey(replicaID.getId())) {
-			List<Hint> list = hints.get(replicaID.getId());
-			list.add(hint);
-			hints.put(replicaID.getId(), list);
+			list = hints.get(replicaID.getId());
 		} else {
-			hints.put(replicaID.getId(), new ArrayList<Hint>());
+			list = new ArrayList<Hint>();
 		}
+		list.add(hint);
+		hints.put(replicaID.getId(), list);
 	}
 
 	private void writeToLog(int key, Value value) throws IOException {
 		//TODO: Instead of opening and closing BW each time check if can handle once
-		BufferedWriter bw = new BufferedWriter(new FileWriter(logFile, true));
+		BufferedWriter bw = new BufferedWriter(new FileWriter(id + logFile, true));
 		String logLine = key + DELIMITER + value.getTimestamp() + DELIMITER + value.getValue();
 		bw.write(logLine);
 		bw.newLine();
@@ -152,7 +185,13 @@ public class StoreHandler implements KeyValueStore.Iface {
 	@Override
 	public String get(int key, Request request, ReplicaID replicaID) throws SystemException, TException {
 		System.out.println("Trying to get " + key);
-		
+		if(hints.containsKey(replicaID.getId())) {
+			performHintedHandoff(replicaID);
+		}
+		if(store.get(key) == null) {
+			System.out.println("the value for key " + key + " is null");
+			return new String();
+		}
 		return store.get(key).getValue();
 	}
 

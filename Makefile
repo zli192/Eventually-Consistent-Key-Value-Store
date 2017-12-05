@@ -3,8 +3,8 @@ all: clean
 	mkdir bin
 	mkdir bin/client_classes
 	mkdir bin/server_classes
-	javac -classpath $(LIB_PATH) -d bin/client_classes/ src/Client.java src/StoreHandler.java src/Value.java gen-java/*
-	javac -classpath $(LIB_PATH) -d bin/server_classes/ src/Server.java src/StoreHandler.java src/Value.java gen-java/*
+	javac -classpath $(LIB_PATH) -d bin/client_classes/ src/Client.java src/Value.java src/Hint.java src/StoreHandler.java  gen-java/*
+	javac -classpath $(LIB_PATH) -d bin/server_classes/ src/Server.java src/Value.java src/Hint.java src/StoreHandler.java gen-java/*
 
 
 clean:
