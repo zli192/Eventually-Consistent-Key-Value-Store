@@ -67,7 +67,7 @@ public class Client {
 				request.setIsCoordinator(true);
 				if(command[0].equalsIgnoreCase("get")) {
 					String returnedValue = client.get(key, request, new ReplicaID().setId("client"));
-					if(returnedValue.isEmpty()) {
+					if(returnedValue.equals("NULL")) {
 						System.out.println("The key either does not exist or has null value");
 					} else {
 						System.out.println("The value returned for key " + key + " is " + returnedValue);
