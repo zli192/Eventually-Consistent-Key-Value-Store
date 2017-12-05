@@ -153,13 +153,12 @@ public class StoreHandler implements KeyValueStore.Iface {
 				}
 				tTransport.close();
 			} catch (TTransportException e) {
-				System.out.println("could not connect to server " + replicaID.getPort());
+				System.out.println("Could not connect to server " + replicaID.getPort());
 				storeHintsLocally(replicaID, key, value, request);
-				e.printStackTrace();
 			} catch (SystemException e) {
-				e.printStackTrace();
+				System.out.println("SystemException: " +e.getMessage());
 			} catch (TException e) {
-				e.printStackTrace();
+				System.out.println("TException: " +e.getMessage());
 			}
 		}
 		return writeSuccessful;
@@ -179,8 +178,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 	}
 
 	private void writeToLog(int key, Value value) throws IOException {
-		// TODO: Instead of opening and closing BW each time check if can handle
-		// once
 		BufferedWriter bw = new BufferedWriter(new FileWriter(id + logFile, true));
 		String logLine = key + DELIMITER + value.getTimestamp() + DELIMITER + value.getValue();
 		bw.write(logLine);
@@ -202,16 +199,11 @@ public class StoreHandler implements KeyValueStore.Iface {
 			}
 			returnValue = store.get(key).getValue();
 		} else {
-
-			System.out.println("Trying to get " + key);
 			if (request.isIsCoordinator()) {
-				System.out.println("GET.In coordinator");
 				returnValue = readFromAllReplicas(key, request);
-				System.out.println("GET.In coordinator returnValue = " + returnValue);
 			} else {
 				if (store.get(key) != null) {
 					returnValue = store.get(key).getTimestamp() + DELIMITER + store.get(key).getValue();
-					System.out.println("NOT In coordinator returnValue = " + returnValue);
 				}
 			}
 
@@ -224,7 +216,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 	 * Read data from all Replicas.And if configured start the read repair
 	 */
 	private String readFromAllReplicas(int key, Request request) {
-		System.out.println("ReadFromALL");
 		int consistencyLevel;
 		List<Value> valueList = new ArrayList<Value>();
 		Map<ReplicaID, Value> readRepairList = new HashMap<ReplicaID, Value>();
@@ -242,7 +233,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 
 		for (ReplicaID replicaID : replicaList) {
 			try {
-				System.out.println("Checking for " + replicaID.getId());
 				if (valueList.size() >= consistencyLevel) {
 					result = getUpdatedValue(valueList);
 				}
@@ -258,7 +248,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 				KeyValueStore.Client client = new KeyValueStore.Client(tProtocol);
 
 				String val = client.get(key, request.setIsCoordinator(false), replicaID);
-				System.out.println("in ReadAll: value from client: " + val);
 				String[] tsVal = val.split(DELIMITER, 2);
 				Value value = new Value(tsVal[1], java.sql.Timestamp.valueOf(tsVal[0]));
 				valueList.add(value);
@@ -266,7 +255,7 @@ public class StoreHandler implements KeyValueStore.Iface {
 
 				tTransport.close();
 			} catch (Exception e) {
-				System.out.println("Error while reading replica" + replicaID.getId());
+				System.out.println("Error while reading replica: " + replicaID.getId());
 			}
 
 		}
@@ -275,11 +264,9 @@ public class StoreHandler implements KeyValueStore.Iface {
 			@Override
 			public void run() {
 				try {
-					System.out.println("starting new repair thread.");
 					startReadRepair(key, request, readRepairList);
-					System.out.println("exiting new repair thread.");
 				} catch (TException e) {
-					System.out.println("Read Repair encountered Error" + e.getMessage());
+					System.out.println("ERROR in ReadRepair: " + e.getMessage());
 				}
 			}
 		};
@@ -292,7 +279,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 	 */
 	private void startReadRepair(int key, Request request, Map<ReplicaID, Value> readRepairList)
 			throws SystemException, TException {
-		System.out.println("Read Repair started thread");
 		Value newestValue = null;
 		for (Value value : readRepairList.values()) {
 			if (newestValue == null) {
@@ -304,12 +290,10 @@ public class StoreHandler implements KeyValueStore.Iface {
 			}
 		}
 
-		// Now we have newest value.. we can override values on each replica
-		// here.
 		for (Entry<ReplicaID, Value> entry : readRepairList.entrySet()) {
 			ReplicaID replica = entry.getKey();
 			Value value = entry.getValue();
-			if (newestValue.getTimestamp().compareTo(value.getTimestamp()) > 0) {
+			if ((newestValue!=null) && (newestValue.getTimestamp().compareTo(value.getTimestamp()) > 0)) {
 				// Update value on that replica.
 				TTransport tTransport = new TSocket(replica.getIp(), replica.getPort());
 				tTransport.open();

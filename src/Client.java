@@ -1,5 +1,4 @@
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -56,15 +55,15 @@ public class Client {
 				TProtocol protocol = new TBinaryProtocol(transport);
 				KeyValueStore.Client client = new KeyValueStore.Client(protocol);
 			
-				System.out.println("Enter the operation in the format get/put,key,value,ONE/TWO\n for get enter"
-						+ " value as -");
+				System.out.println("Enter the operation in the format: get/put,key,value,ONE/TWO\n(NOTE: For get enter"
+						+ " value as -):");
 				BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 				String operation = br.readLine();
 				String[] command = operation.split(",");
 				int key = Integer.parseInt(command[1]);
 				String value = command[2];
 				Request request = new Request();
-				request.setLevel(ConsistencyLevel.valueOf(command[3]));
+				request.setLevel(ConsistencyLevel.valueOf(command[3].toUpperCase()));
 				request.setIsCoordinator(true);
 				if(command[0].equalsIgnoreCase("get")) {
 					String returnedValue = client.get(key, request, new ReplicaID().setId("client"));
@@ -74,14 +73,19 @@ public class Client {
 						System.out.println("The value returned for key " + key + " is " + returnedValue);
 					}
 				} else {
-					client.put(key, value, request, null);
+					if(!client.put(key, value, request, null)) {
+						System.out.println("Write operation was not successful. Server might be down.");
+					}
 				}
 				transport.close();
 			
 			} catch (TException e) {
-				System.err.println("Error: Value could not be retrieved");
+				System.out.println("Error: Value could not be retrieved");
+				transport.close();
+				
 			} catch (IOException e) {
-				System.err.println("Error: Value could not be retrieved");
+				System.out.println("Error: Value could not be retrieved");
+				transport.close();
 			}
 		}
 		
