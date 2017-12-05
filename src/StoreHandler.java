@@ -6,8 +6,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.thrift.TException;
@@ -28,6 +30,9 @@ public class StoreHandler implements KeyValueStore.Iface {
 	private static final String DELIMITER = ",";
 	private Map<Integer, Value> store;
 	private Map<String, List<Hint>> hints;
+	
+	private boolean useReadRepair;
+	private boolean useHintedHandoff;
 
 	/**
 	 * Constructor
@@ -39,6 +44,8 @@ public class StoreHandler implements KeyValueStore.Iface {
 		this.replicaList = replList;
 		store = new ConcurrentHashMap<Integer, Value>();
 		hints = new ConcurrentHashMap<String, List<Hint>>();
+		useReadRepair = true;
+		useHintedHandoff = false;
 		populateStore();
 	}
 
@@ -182,17 +189,137 @@ public class StoreHandler implements KeyValueStore.Iface {
 		bw.close();
 	}
 
+
 	@Override
 	public String get(int key, Request request, ReplicaID replicaID) throws SystemException, TException {
-		System.out.println("Trying to get " + key);
-		if(hints.containsKey(replicaID.getId())) {
-			performHintedHandoff(replicaID);
+		String returnValue = null;
+		if (useReadRepair) {
+			System.out.println("Trying to get " + key);
+			if (request.isIsCoordinator()) {
+				returnValue = readFromAllReplicas(key, request);
+			} else {
+				returnValue = store.get(key).getTimestamp() + DELIMITER + store.get(key).getValue();
+			}
+			//return value;
 		}
-		if(store.get(key) == null) {
-			System.out.println("the value for key " + key + " is null");
-			return new String();
+		if (useHintedHandoff) {
+			System.out.println("Trying to get " + key);
+			if (hints.containsKey(replicaID.getId())) {
+				performHintedHandoff(replicaID);
+			}
+			if (store.get(key) == null) {
+				System.out.println("the value for key " + key + " is null");
+				returnValue = new String();
+			}
+			returnValue = store.get(key).getValue();
 		}
-		return store.get(key).getValue();
+		
+		return returnValue;
 	}
 
+	/**
+	 * Read data from all Replicas.And if configured start the read repair
+	 */
+	private String readFromAllReplicas(int key, Request request) throws SystemException, TException {
+		int consistencyLevel;
+		List<Value> valueList = new ArrayList<Value>();
+		Map<ReplicaID,Value> readRepairList = new HashMap<ReplicaID,Value>();		
+
+		String result = null;
+
+		if (request.getLevel() == ConsistencyLevel.ONE) {
+			consistencyLevel = 1;
+		} else {
+			consistencyLevel = 2;
+		}
+		valueList.add(store.get(key));
+
+		for (ReplicaID replicaID : replicaList) {
+			
+			if (valueList.size() >= consistencyLevel) {
+				result = getUpdatedValue(valueList);
+			}
+			if (replicaID.getId().equals(id)) {
+				// Don't read from itself
+				readRepairList.put(replicaID, store.get(key));
+				continue;
+			}
+			
+			TTransport tTransport = new TSocket(replicaID.getIp(), replicaID.getPort());
+			tTransport.open();
+			TProtocol tProtocol = new TBinaryProtocol(tTransport);
+			KeyValueStore.Client client = new KeyValueStore.Client(tProtocol);
+
+			String val = client.get(key, request.setIsCoordinator(false), replicaID);
+			String[] tsVal = val.split(DELIMITER, 2);
+			Value value = new Value(tsVal[1], java.sql.Timestamp.valueOf(tsVal[0]));
+			valueList.add(value);
+			readRepairList.put(replicaID, value);
+
+			tTransport.close();
+
+		}
+		//Start this method in background.
+		Runnable runnable = new Runnable() {		
+			@Override
+			public void run() {
+				try {
+					startReadRepair(key,request, readRepairList);
+				} catch (TException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		};
+		(new Thread(runnable)).start();
+		return result;
+	}
+
+	/**
+	 * Starts the readRepair mechanism 
+	 */
+	private void startReadRepair(int key, Request request, Map<ReplicaID, Value> readRepairList) throws SystemException, TException {
+		System.out.println("Read Repair started");
+		Value newestValue=null;
+		for(Value value : readRepairList.values()){
+			if(newestValue==null){
+				newestValue=value;
+			} else{
+				if(newestValue.getTimestamp().compareTo(value.getTimestamp()) < 0){
+					newestValue = value;
+				}
+			}
+		}
+		
+		//Now we have newest value.. we can override values on each replica here.
+		for(Entry<ReplicaID, Value> entry : readRepairList.entrySet()){
+			ReplicaID replica = entry.getKey();
+			Value value = entry.getValue();
+			if(newestValue.getTimestamp().compareTo(value.getTimestamp()) > 0){
+				//Update value on that replica.
+				TTransport tTransport = new TSocket(replica.getIp(), replica.getPort());
+				tTransport.open();
+				TProtocol tProtocol = new TBinaryProtocol(tTransport);
+				KeyValueStore.Client client = new KeyValueStore.Client(tProtocol);
+				client.put(key, value.getValue(), request, new ReplicaID().setIp(ip).setPort(port).setId(id));
+				tTransport.close();
+			}
+		}
+	}
+
+	/**
+	 * Get the recent value from value list.
+	 * @param valueList
+	 * @return
+	 */
+	private String getUpdatedValue(List<Value> valueList) {
+		Value newestValue = valueList.get(0);
+		for(Value value : valueList){
+			if(newestValue.getTimestamp().compareTo(value.getTimestamp()) < 0){
+				newestValue = value;
+			}
+		}
+		return newestValue.getTimestamp()+DELIMITER+newestValue.getValue();
+	}
+	
 }
