@@ -55,7 +55,6 @@ public class Client {
 				transport.open();
 				TProtocol protocol = new TBinaryProtocol(transport);
 				KeyValueStore.Client client = new KeyValueStore.Client(protocol);
-			
 				System.out.println("Enter the operation in the format: get/put,key,value,ONE/TWO\n(NOTE: For get enter"
 						+ " value as -):");
 				BufferedReader br = new BufferedReader(new InputStreamReader(System.in));

@@ -30,14 +30,13 @@ public class StoreHandler implements KeyValueStore.Iface {
 	private static final String DELIMITER = ",";
 	private Map<Integer, Value> store;
 	private Map<String, List<Hint>> hints;
-
 	private boolean isHintedHandoff;
 
 	/**
 	 * Constructor
 	 */
-	public StoreHandler(String id, String ip, int port, List<ReplicaID> replList, boolean isHintedHandoff)
-			throws NumberFormatException, IOException {
+
+	public StoreHandler(String id, String ip, int port, List<ReplicaID> replList, boolean isHintedHandoff) throws NumberFormatException, IOException {
 		this.id = id;
 		this.port = port;
 		this.ip = ip;
@@ -119,8 +118,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 				client.put(hint.getKey(), hint.getValue(), hint.getRequest(),
 						new ReplicaID().setIp(ip).setPort(port).setId(id));
 				tTransport.close();
-			} catch (TTransportException e) {
-				e.printStackTrace();
 			} catch (SystemException e) {
 				e.printStackTrace();
 			} catch (TException e) {
@@ -196,8 +193,9 @@ public class StoreHandler implements KeyValueStore.Iface {
 			if (store.get(key) == null) {
 				System.out.println("the value for key " + key + " is null");
 				returnValue = new String();
+			} else {
+				returnValue = store.get(key).getValue();
 			}
-			returnValue = store.get(key).getValue();
 		} else {
 			if (request.isIsCoordinator()) {
 				returnValue = readFromAllReplicas(key, request);
@@ -206,7 +204,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 					returnValue = store.get(key).getTimestamp() + DELIMITER + store.get(key).getValue();
 				}
 			}
-
 		}
 
 		return returnValue;
