@@ -71,7 +71,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 
 	@Override
 	public boolean put(int key, String value, Request request, ReplicaID replicaID) throws SystemException, TException {
-		// System.out.println("Trying to put " + key);
 		Timestamp timestamp;
 		Value oldValue = store.get(key);
 		try {
@@ -98,16 +97,13 @@ public class StoreHandler implements KeyValueStore.Iface {
 		}
 
 		if (oldValue == null || oldValue.getTimestamp().before(timestamp)) {
-			System.out.println("The put request is the most recent");
 			Value valueWithTimestamp = new Value(value, timestamp);
 			store.put(key, valueWithTimestamp);
-			System.out.println(replicaID.getId() + " wrote value " + value + " at replica " + id + " for key " + key);
 		}
 		return true;
 	}
 
 	private void performHintedHandoff(ReplicaID replicaID) {
-		System.out.println("Hinted handoff being performed on replica " + replicaID.getId() + " by replica " + id);
 		List<Hint> listOfHints = hints.get(replicaID.getId());
 		for (Hint hint : listOfHints) {
 			TTransport tTransport = new TSocket(replicaID.getIp(), replicaID.getPort());
@@ -162,7 +158,6 @@ public class StoreHandler implements KeyValueStore.Iface {
 	}
 
 	private void storeHintsLocally(ReplicaID replicaID, int key, String value, Request request) {
-		System.out.println("store hints locally called");
 		Hint hint = new Hint(replicaID, key, value, request);
 		List<Hint> list;
 		if (hints.containsKey(replicaID.getId())) {
@@ -186,15 +181,11 @@ public class StoreHandler implements KeyValueStore.Iface {
 	public String get(int key, Request request, ReplicaID replicaID) throws SystemException, TException {
 		String returnValue = new String("NULL");
 		if (isHintedHandoff) {
-			System.out.println("Trying to get " + key);
 			if (hints.containsKey(replicaID.getId())) {
 				performHintedHandoff(replicaID);
 			}
-			if (store.get(key) == null) {
-				System.out.println("the value for key " + key + " is null");
-				returnValue = new String();
-			} else {
-				returnValue = store.get(key).getValue();
+			if (store.get(key) != null) {
+				returnValue = store.get(key).getTimestamp() + DELIMITER + store.get(key).getValue();
 			}
 		} else {
 			if (request.isIsCoordinator()) {
